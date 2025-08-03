@@ -31,7 +31,7 @@ def generate(filename: str) -> None:
 
     with ProcessPoolExecutor(max_workers=num_procs) as executor:
         futures = [executor.submit(generate_chunk, stations, chunk_size, seed) for seed in range(num_chunks)]
-    f = open(filename, "a", buffering=1024*1024)
+    f = open(filename, "a")
     for future in as_completed(futures):
         f.write(future.result())
 
