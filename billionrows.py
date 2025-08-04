@@ -85,7 +85,6 @@ def parse(filename: str) -> None:
                 existing_vals[1] = max(existing_vals[1], v[1])
                 existing_vals[2] += v[2]
                 existing_vals[3] = min(existing_vals[3], v[3])
-                output_values[k] = existing_vals
 
     for k, v in output_values.items():
         v[2] = v[2] / v[0]
