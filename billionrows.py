@@ -1,6 +1,7 @@
 # Python implementation of the billion rows challenge
 import argparse
 import os
+import re
 from itertools import islice
 from typing import Any, Generator
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -47,12 +48,13 @@ def read_file_chunk(filename: str, lines: int =1000) -> Generator[list[str], Any
 
 def parse_chunk(chunk: list[str]) -> {}:
     output_values = {}
+    pattern = re.compile(r'^([^;]+);(-?\d+(?:\.\d+)?)$')
     for row in chunk:
-        try:
-            key, val = row.split(';')
-            val = float(val)
-        except (ValueError, IndexError):
+        match = pattern.match(row)
+        if not match:
             continue
+
+        key, val = match.group(1), float(match.group(2))
 
         if key not in output_values:
             output_values[key] = [1, val, val, val]  # count, max, sum, min

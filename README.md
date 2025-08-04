@@ -2,6 +2,7 @@
 
 A high-performance Python implementation of the [Billion Row Challenge](https://github.com/gunnarmorling/1brc) that processes one billion temperature measurements as fast as possible.
 
+Performance enhancements take inspiration from [VictoriqueMoe Go Version](https://github.com/VictoriqueMoe/go-billion-rows).
 ## Overview
 
 This implementation processes a text file containing one billion rows of weather station temperature data in the format:
