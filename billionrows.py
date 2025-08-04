@@ -9,13 +9,15 @@ from multiprocessing.spawn import freeze_support
 
 
 # Generate 1 billion rows of random data
-def generate_chunk(stations: list, num_rows: int, seed: float) -> str:
+def generate_chunk(stations: list, num_rows: int, seed: float, filename: str) -> None:
     np.random.seed(seed)  # Important: unique seed per process
     station_indices = np.random.randint(0, len(stations), size=num_rows)
     values = np.random.uniform(-100, 100, size=num_rows)
 
     chunk = [f"{stations[i]};{values[j]:.2f}" for j, i in enumerate(station_indices)]
-    return "\n".join(chunk) + "\n"
+    with open(filename, 'ab', buffering = 10240*1024) as f:
+        for line in chunk:
+            f.write(line.encode('utf-8') + b'\n')
 
 def generate(filename: str) -> None:
     print('Reading weather station names')
@@ -25,15 +27,14 @@ def generate(filename: str) -> None:
     chunk_size = 10_000_000
     total = 1_000_000_000
     num_chunks = total // chunk_size
-    num_procs = 8
+    num_procs = 14
 
     print(f'Generating {total:,} rows using {num_procs} workers...')
 
     with ProcessPoolExecutor(max_workers=num_procs) as executor:
-        futures = [executor.submit(generate_chunk, stations, chunk_size, seed) for seed in range(num_chunks)]
-    f = open(filename, "a")
+        futures = [executor.submit(generate_chunk, stations, chunk_size, seed, filename) for seed in range(num_chunks)]
     for future in as_completed(futures):
-        f.write(future.result())
+        print('Chunk complete')
 
 # Parse given data file to {station=min/avg/max}
 def read_file_chunk(filename: str, lines: int =1000) -> Generator[list[str], Any, None]:
