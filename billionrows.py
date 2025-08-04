@@ -45,11 +45,8 @@ def parse_chunk_mmap(filename: str, offset: int, size: int) -> {}:
     with open(filename, 'rb') as file:
         with mmap.mmap(file.fileno(), 0, access=ACCESS_READ) as m:
             m.seek(offset)
-            while m.tell() < offset + size:
-                line = m.readline()
-                if not line:
-                    break
-                row = line.decode('ascii', errors='ignore').strip('\n')
+            chunk = m.read(size)
+            for row in chunk.decode('ascii', errors='ignore').splitlines():
                 match = pattern.match(row)
                 if not match:
                     continue
