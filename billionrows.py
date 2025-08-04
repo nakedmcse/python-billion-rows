@@ -2,8 +2,8 @@
 import argparse
 import os
 import re
-from itertools import islice
-from typing import Any, Generator
+import mmap
+from mmap import ACCESS_READ
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import numpy as np
@@ -38,32 +38,32 @@ def generate(filename: str) -> None:
         pass
 
 # Parse given data file to {station=min/avg/max}
-def read_file_chunk(filename: str, lines: int =1000) -> Generator[list[str], Any, None]:
-    with open(filename, 'r') as file:
-        while True:
-            chunk = list(islice(file, lines))
-            if not chunk:
-                break
-            yield chunk
-
-def parse_chunk(chunk: list[str]) -> {}:
+def parse_chunk_mmap(filename: str, offset: int, size: int) -> {}:
     output_values = {}
     pattern = re.compile(r'^([^;]+);(-?\d+(?:\.\d+)?)$')
-    for row in chunk:
-        match = pattern.match(row)
-        if not match:
-            continue
 
-        key, val = match.group(1), float(match.group(2))
+    with open(filename, 'rb') as file:
+        with mmap.mmap(file.fileno(), 0, access=ACCESS_READ) as m:
+            m.seek(offset)
+            while m.tell() < offset + size:
+                line = m.readline()
+                if not line:
+                    break
+                row = line.decode('utf-8', errors='ignore').strip('\n')
+                match = pattern.match(row)
+                if not match:
+                    continue
 
-        if key not in output_values:
-            output_values[key] = [1, val, val, val]  # count, max, sum, min
-        else:
-            stats = output_values[key]
-            stats[0] += 1
-            stats[1] = max(stats[1], val)
-            stats[2] += val  # sum
-            stats[3] = min(stats[3], val)
+                key, val = match.group(1), float(match.group(2))
+
+                if key not in output_values:
+                    output_values[key] = [1, val, val, val]  # count, max, sum, min
+                else:
+                    stats = output_values[key]
+                    stats[0] += 1
+                    stats[1] = max(stats[1], val)
+                    stats[2] += val  # sum
+                    stats[3] = min(stats[3], val)
 
     for key, stats in output_values.items():
         stats[2] = stats[2] / stats[0]  # replace sum with average
@@ -72,23 +72,30 @@ def parse_chunk(chunk: list[str]) -> {}:
 def parse(filename: str) -> None:
     chunk_size = 10_000_000
     total = 1000_000_000
+    num_chunks = total // chunk_size
+    file_size = os.path.getsize(filename)
+    chunk_bytes = file_size // num_chunks
     num_procs = os.cpu_count()
+    processed = 0
     print(f'Parsing {total:,} rows using {num_procs} workers...')
 
     output_values = {}
     with ProcessPoolExecutor(max_workers=num_procs) as executor:
-        futures = [executor.submit(parse_chunk, chunk) for chunk in read_file_chunk(filename, chunk_size)]
-    for future in as_completed(futures):
-        data = future.result()
-        for k, v in data.items():
-            if k not in output_values:
-                output_values[k] = v
-            else:
-                existing_vals = output_values[k]
-                existing_vals[0] += v[0]
-                existing_vals[1] = max(existing_vals[1], v[1])
-                existing_vals[2] += v[2]
-                existing_vals[3] = min(existing_vals[3], v[3])
+        #futures = [executor.submit(parse_chunk, chunk) for chunk in read_file_chunk(filename, chunk_size)]
+        futures = [executor.submit(parse_chunk_mmap, filename, x, chunk_bytes) for x in range(0, file_size, chunk_bytes)]
+        for future in as_completed(futures):
+            data = future.result()
+            for k, v in data.items():
+                if k not in output_values:
+                    output_values[k] = v
+                else:
+                    existing_vals = output_values[k]
+                    existing_vals[0] += v[0]
+                    existing_vals[1] = max(existing_vals[1], v[1])
+                    existing_vals[2] += v[2]
+                    existing_vals[3] = min(existing_vals[3], v[3])
+            processed += 1
+            print(f'Processed {processed:,} chunks.')
 
     for k, v in output_values.items():
         v[2] = v[2] / v[0]
