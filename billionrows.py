@@ -40,18 +40,17 @@ def generate(filename: str) -> None:
 # Parse given data file to {station=min/avg/max}
 def parse_chunk_mmap(filename: str, offset: int, size: int) -> {}:
     output_values = {}
-    pattern = re.compile(r'^([^;]+);(-?\d+(?:\.\d+)?)$')
 
     with open(filename, 'rb') as file:
         with mmap.mmap(file.fileno(), 0, access=ACCESS_READ) as m:
             m.seek(offset)
             chunk = m.read(size)
             for row in chunk.decode('ascii', errors='ignore').splitlines():
-                match = pattern.match(row)
-                if not match:
+                try:
+                    key, val_str = row.split(';')
+                    val = float(val_str)
+                except Exception:
                     continue
-
-                key, val = match.group(1), float(match.group(2))
 
                 if key not in output_values:
                     output_values[key] = [1, val, val, val]  # count, max, sum, min
