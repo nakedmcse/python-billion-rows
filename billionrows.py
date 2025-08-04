@@ -71,7 +71,9 @@ def parse_chunk(chunk: list[str]) -> {}:
 
 def parse(filename: str) -> None:
     chunk_size = 10_000_000
-    num_procs = 8
+    total = 1000_000_000
+    num_procs = os.cpu_count()
+    print(f'Parsing {total:,} rows using {num_procs} workers...')
 
     output_values = {}
     with ProcessPoolExecutor(max_workers=num_procs) as executor:
