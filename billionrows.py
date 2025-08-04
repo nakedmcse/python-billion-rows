@@ -1,5 +1,6 @@
 # Python implementation of the billion rows challenge
 import argparse
+import os
 from itertools import islice
 from typing import Any, Generator
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -12,12 +13,11 @@ from multiprocessing.spawn import freeze_support
 def generate_chunk(stations: list, num_rows: int, seed: float, filename: str) -> None:
     np.random.seed(seed)  # Important: unique seed per process
     station_indices = np.random.randint(0, len(stations), size=num_rows)
-    values = np.random.uniform(-100, 100, size=num_rows)
+    values = np.random.uniform(-100, 100, size=num_rows).round(2)
 
-    chunk = [f"{stations[i]};{values[j]:.2f}" for j, i in enumerate(station_indices)]
-    with open(filename, 'ab', buffering = 10240*1024) as f:
-        for line in chunk:
-            f.write(line.encode('utf-8') + b'\n')
+    with open(filename, 'ab', buffering=10240*1024) as f:
+        for j, i in enumerate(station_indices):
+            f.write(f"{stations[i]};{values[j]}".encode('utf-8') + b'\n')
 
 def generate(filename: str) -> None:
     print('Reading weather station names')
@@ -27,14 +27,14 @@ def generate(filename: str) -> None:
     chunk_size = 10_000_000
     total = 1_000_000_000
     num_chunks = total // chunk_size
-    num_procs = 14
+    num_procs = os.cpu_count()
 
     print(f'Generating {total:,} rows using {num_procs} workers...')
 
     with ProcessPoolExecutor(max_workers=num_procs) as executor:
         futures = [executor.submit(generate_chunk, stations, chunk_size, seed, filename) for seed in range(num_chunks)]
-    for future in as_completed(futures):
-        print('Chunk complete')
+    for _ in as_completed(futures):
+        pass
 
 # Parse given data file to {station=min/avg/max}
 def read_file_chunk(filename: str, lines: int =1000) -> Generator[list[str], Any, None]:
