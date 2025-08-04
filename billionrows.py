@@ -18,11 +18,11 @@ def generate_chunk(stations: list, num_rows: int, seed: float, filename: str) ->
 
     with open(filename, 'ab', buffering=10240*1024) as f:
         for j, i in enumerate(station_indices):
-            f.write(f"{stations[i]};{values[j]}".encode('utf-8') + b'\n')
+            f.write(f"{stations[i]};{values[j]}".encode('ascii') + b'\n')
 
 def generate(filename: str) -> None:
     print('Reading weather station names')
-    with open('weather_stations.csv') as file:
+    with open('weather_stations.csv', encoding='ascii', errors='ignore') as file:
         stations = [n[0] for n in (x.split(';') for x in file.read().splitlines() if not "#" in x)]
 
     chunk_size = 10_000_000
@@ -49,7 +49,7 @@ def parse_chunk_mmap(filename: str, offset: int, size: int) -> {}:
                 line = m.readline()
                 if not line:
                     break
-                row = line.decode('utf-8', errors='ignore').strip('\n')
+                row = line.decode('ascii', errors='ignore').strip('\n')
                 match = pattern.match(row)
                 if not match:
                     continue
@@ -76,12 +76,10 @@ def parse(filename: str) -> None:
     file_size = os.path.getsize(filename)
     chunk_bytes = file_size // num_chunks
     num_procs = os.cpu_count()
-    processed = 0
     print(f'Parsing {total:,} rows using {num_procs} workers...')
 
     output_values = {}
     with ProcessPoolExecutor(max_workers=num_procs) as executor:
-        #futures = [executor.submit(parse_chunk, chunk) for chunk in read_file_chunk(filename, chunk_size)]
         futures = [executor.submit(parse_chunk_mmap, filename, x, chunk_bytes) for x in range(0, file_size, chunk_bytes)]
         for future in as_completed(futures):
             data = future.result()
@@ -94,8 +92,6 @@ def parse(filename: str) -> None:
                     existing_vals[1] = max(existing_vals[1], v[1])
                     existing_vals[2] += v[2]
                     existing_vals[3] = min(existing_vals[3], v[3])
-            processed += 1
-            print(f'Processed {processed:,} chunks.')
 
     for k, v in output_values.items():
         v[2] = v[2] / v[0]
