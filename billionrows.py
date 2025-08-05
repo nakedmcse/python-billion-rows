@@ -8,6 +8,8 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 import numpy as np
 from multiprocessing.spawn import freeze_support
 
+from sympy.core.numbers import Infinity
+
 
 # Generate 1 billion rows of random data
 def generate_chunk(stations: list, num_rows: int, seed: float, filename: str) -> None:
@@ -48,20 +50,18 @@ def parse_chunk_mmap(filename: str, offset: int, size: int) -> {}:
                 try:
                     key, val_str = row.split(';')
                     val = float(val_str)
-                except Exception:
-                    continue
-
-                if key not in output_values:
-                    output_values[key] = [1, val, val, val]  # count, max, sum, min
-                else:
                     stats = output_values[key]
                     stats[0] += 1
                     stats[1] = max(stats[1], val)
                     stats[2] += val  # sum
                     stats[3] = min(stats[3], val)
+                except KeyError:
+                    output_values[key] = [1,val,val,val]
+                except Exception:
+                    continue
 
-    for key, stats in output_values.items():
-        stats[2] = stats[2] / stats[0]  # replace sum with average
+    for vals in output_values.values():
+        vals[2] = vals[2] / vals[0]  # replace sum with average
     return output_values
 
 def parse(filename: str) -> None:
@@ -79,16 +79,16 @@ def parse(filename: str) -> None:
         for future in as_completed(futures):
             data = future.result()
             for k, v in data.items():
-                if k not in output_values:
-                    output_values[k] = v
-                else:
+                try:
                     existing_vals = output_values[k]
                     existing_vals[0] += v[0]
                     existing_vals[1] = max(existing_vals[1], v[1])
                     existing_vals[2] += v[2]
                     existing_vals[3] = min(existing_vals[3], v[3])
+                except KeyError:
+                    output_values[k] = v
 
-    for k, v in output_values.items():
+    for v in output_values.values():
         v[2] = v[2] / v[0]
 
     sorted_stations = sorted(output_values.keys())
