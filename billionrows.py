@@ -1,7 +1,6 @@
 # Python implementation of the billion rows challenge
 import argparse
 import os
-import re
 import mmap
 from mmap import ACCESS_READ
 from concurrent.futures import ProcessPoolExecutor, as_completed
