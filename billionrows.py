@@ -58,8 +58,6 @@ def parse_chunk_mmap(filename: str, offset: int, size: int) -> {}:
                 except Exception:
                     continue
 
-    for vals in output_values.values():
-        vals[2] = vals[2] / vals[0]  # replace sum with average
     return output_values
 
 def parse(filename: str) -> None:
