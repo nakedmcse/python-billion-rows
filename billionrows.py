@@ -8,8 +8,6 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 import numpy as np
 from multiprocessing.spawn import freeze_support
 
-from sympy.core.numbers import Infinity
-
 
 # Generate 1 billion rows of random data
 def generate_chunk(stations: list, num_rows: int, seed: float, filename: str) -> None:
@@ -91,10 +89,10 @@ def parse(filename: str) -> None:
     for v in output_values.values():
         v[2] = v[2] / v[0]
 
-    sorted_stations = sorted(output_values.keys())
+    sorted_stations = sorted(output_values.items())
     output_lines = []
     for station in sorted_stations:
-        output_lines.append(f"{station}={output_values[station][1]:.2f}/{output_values[station][2]:.2f}/{output_values[station][3]:.2f}")
+        output_lines.append(f"{station[0]}={station[1][1]:.2f}/{station[1][2]:.2f}/{station[1][3]:.2f}")
     print("{" + ", ".join(output_lines) + "}")
 
 # Main program
